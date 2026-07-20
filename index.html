@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🌿 รู้ไหมกันตังมีดีอะไร - AR Interactive Game (Absolute 5 Leaves)</title>
+    <!-- Tailwind CSS & Google Fonts -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- MediaPipe & Three.js Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <style>
+        body { font-family: 'Mitr', sans-serif; }
+        #webcam { transform: scaleX(-1); will-change: transform; opacity: 0.45; }
+        .blur-bg { backdrop-filter: blur(12px); }
+        .bg-welcome {
+            background-image: linear-gradient(to bottom, rgba(15,23,42,0.6), rgba(15,23,42,0.85)), url('ใส่ลิงก์รูปภาพของพี่ตรงนี้');
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 m-0 p-0 overflow-hidden select-none touch-none w-screen h-screen text-white">
+
+    <!-- 1. หน้าต่างกรอกชื่อเข้าเล่นเกม (Login overlay) -->
+    <div id="screen-login" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 blur-bg p-4 transition-all duration-500">
+        <div class="bg-slate-900 border-4 border-emerald-500/30 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center">
+            <div class="text-5xl mb-4 animate-bounce">🌿👨‍✈️</div>
+            <h2 class="text-2xl font-bold text-emerald-400 mb-2">ลงทะเบียนผู้เล่น</h2>
+            <p class="text-xs text-slate-400 mb-6">กรุณากรอกชื่อจริงเพื่อบันทึกทำเนียบผู้รู้จริงเมืองกันตัง</p>
+            <div class="mb-5">
+                <input type="text" id="player-name" placeholder="ชื่อ - นามสกุลของคุณ" 
+                       class="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl px-4 py-3 text-base text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-all text-center font-medium">
+            </div>
+            <button id="btn-submit-name" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black py-3.5 px-4 rounded-xl text-sm shadow-md cursor-pointer transform active:scale-95 transition-all">
+                🌿 เข้าสู่ระบบเกม
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. หน้าแรกต้อนรับของเกมการเรียนรู้ (Welcome Screen) -->
+    <div id="screen-welcome" class="fixed inset-0 z-40 flex flex-col items-center justify-center p-6 bg-welcome text-center hidden opacity-0 transition-all duration-500">
+        <div class="bg-slate-900/90 border-4 border-emerald-500/40 p-8 rounded-3xl shadow-[0_0_40px_rgba(16,185,129,0.3)] max-w-xl w-full">
+            <div class="text-6xl mb-4">✨🌿</div>
+            <h1 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-300 to-cyan-400 mb-3 tracking-wide drop-shadow-md">
+                รู้ไหมกันตังมีดีอะไร
+            </h1>
+            <p class="text-sm text-slate-300 mb-6 leading-relaxed">
+                เกมการเรียนรู้ กับ สกร.ระดับอำเภอกันตัง <br>
+                ใช้ <span class="text-yellow-400 font-semibold animate-pulse">"นิ้วชี้จิ้มสัมผัส"</span> ใบยางพาราข้อที่ถูกต้องโดยตรงได้เลย!
+            </p>
+            
+            <div class="bg-slate-950/60 rounded-xl p-4 text-left text-xs space-y-2 mb-6 border border-slate-800 text-slate-300">
+                <div class="font-bold text-sm text-center text-emerald-400 border-b border-slate-800 pb-1 mb-1">📝 กติกาความสนุก (เวลา 30 วินาที)</div>
+                <div class="flex justify-between"><span>✅ ใบยางพาราที่เกี่ยวข้องกับกันตัง</span> <span class="text-emerald-400 font-bold font-mono">+10 คะแนน</span></div>
+                <div class="flex justify-between"><span>❌ ใบยางพาราที่ไม่เกี่ยวข้องกับกันตัง</span> <span class="text-rose-400 font-bold font-mono">-5 คะแนน</span></div>
+            </div>
+
+            <button id="btn-play" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black py-4 px-6 rounded-2xl text-lg shadow-[0_10px_20px_rgba(16,185,129,0.3)] cursor-pointer transform hover:scale-105 active:scale-95 transition-all uppercase tracking-wider">
+                🎮 เริ่มเล่นเกมเลย!
+            </button>
+        </div>
+    </div>
+
+    <!-- 3. หน้าสรุปคะแนนและระดับ (Game Over Screen) -->
+    <div id="screen-result" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-6 hidden opacity-0 transition-all duration-500">
+        <div class="bg-slate-900 border-4 border-yellow-500/30 p-8 rounded-3xl shadow-[0_0_50px_rgba(234,179,8,0.2)] max-w-sm w-full text-center">
+            <h2 class="text-3xl font-black text-yellow-400 mb-1">🏁 สรุปผลภารกิจ</h2>
+            <p class="text-xs text-slate-400 mb-6">รู้ไหมกันตังมีดีอะไร</p>
+            
+            <div class="relative w-32 h-32 mx-auto mb-6 flex items-center justify-center bg-slate-950 rounded-full border border-slate-800 shadow-inner">
+                <div id="medal-emoji" class="text-6xl drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)]">🥇</div>
+                <div id="medal-sparkle" class="absolute inset-0 animate-spin text-sm text-yellow-400/20 pointer-events-none">✨ ✦ ✨ ✦</div>
+            </div>
+
+            <div class="space-y-3 mb-6 bg-slate-950/50 p-4 rounded-xl border border-slate-800/80">
+                <div>
+                    <div class="text-xs text-slate-400">ชื่อผู้รันภารกิจ</div>
+                    <div id="final-name" class="text-base font-bold text-emerald-400 mt-0.5">ไม่ระบุชื่อ</div>
+                </div>
+                <div class="border-t border-slate-800 pt-2">
+                    <div class="text-xs text-slate-400">คะแนนรวมที่ทำได้</div>
+                    <div id="final-score" class="text-3xl font-black text-white font-mono">0</div>
+                </div>
+                <div class="border-t border-slate-800 pt-2">
+                    <div class="text-xs text-slate-400">ระดับความสามารถ</div>
+                    <div id="final-rank" class="text-sm font-bold text-cyan-400">กำลังประมวลผล...</div>
+                </div>
+            </div>
+
+            <button id="btn-send-data" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs mb-3 transition-all cursor-pointer">
+                📤 ส่งคะแนนไปที่ Google Sheets
+            </button>
+            <button id="btn-restart" class="w-full bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-slate-950 font-black py-2.5 px-4 rounded-xl text-xs cursor-pointer transition-all">
+                🔄 เล่นใหม่อีกครั้ง
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. ส่วนระบบ AR HUD (หน้าจอเกมจริง) -->
+    <div id="game-hud" class="absolute top-4 left-4 right-4 z-40 flex justify-between items-start pointer-events-none hidden">
+        <div class="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-800 shadow-2xl min-w-[140px] text-center">
+            <div id="ui-pilot-name" class="text-[10px] text-emerald-400 font-bold mb-1 truncate max-w-[120px]">👨‍✈️ ผู้เล่น: -</div>
+            <div class="text-[10px] text-slate-400 font-medium">⏳ เวลาที่เหลือ</div>
+            <div id="ui-timer" class="text-3xl font-black text-rose-500 font-mono">30</div>
+        </div>
+        <div class="bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl border border-slate-800 shadow-2xl min-w-[140px] text-center flex flex-col justify-center">
+            <div class="text-[10px] text-slate-400 font-medium">✨ คะแนนปัจจุบัน</div>
+            <div id="ui-score" class="text-3xl font-black text-emerald-400 font-mono">0</div>
+        </div>
+    </div>
+
+    <!-- ส่วนเนื้อหากล้อง Web Camera และแอนิเมชัน Canvas -->
+    <video id="webcam" class="absolute w-full h-full object-cover z-10" autoplay playsinline muted></video>
+    <div id="canvas3d" class="absolute w-full h-full z-20 pointer-events-none"></div>
+
+    <script>
+        // 🚨 นำลิงก์ Web App URL จาก Google Apps Script ของพี่มาวางแทนข้อความตรงนี้ครับ
+        const GAS_WEB_APP_URL = "วางลิงก์เว็บแอปของคุณตรงนี้";
+
+        // --- 📊 ชุดข้อมูลคีย์เวิร์ดประจำด่านเกม ---
+        const KANTANG_WORDS = [
+            "ตูลูลู้ด", "ชาวท่าเรือ", "ต้นยางพาราต้นแรก", "สถานีรถไฟ", 
+            "ควนตำหนักจันทร์", "เกาะมุกด์", "บ่อน้ำพุร้อน", "หาดสิวาลัย", 
+            "พิพิธภัณฑ์พระยารัษฎา", "Yong Ling Cave", "ควนตุ้งกู", 
+            "ศาลเจ้าฮกเกี้ยนก๋งก้วน", "ศาลเจ้าเก่งจิวโฮยก้วน", "เขาจมป่า"
+        ];
+        const OTHER_WORDS = [
+            "กะพังสุรินทร์", "ทุ่งค่าย", "หาดราชมงคล", "หาดปากเมง", 
+            "เกาะไหง", "เกาะรอก", "เกาะกระดาน", "เกาะเหลาเหลียงเหนือ-ใต้", 
+            "เกาะมุก-ถ้ำมรกต", "ถ้ำเลเขากอบ", "ถ้ำเขาช้างหาย", "ถ้ำเขาปินะ", 
+            "วังผาเมฆ", "วังเทพทาโร", "หาดสวนสนร้อยปี"
+        ];
+
+        let pName = "";
+        let gameScore = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+        let gameTimerInterval = null;
+        let audioCtx = null;
+        let leafObjects = []; 
+        let hasHandDetected = false;
+
+        // Setup Three.js
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas3d').appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
+        scene.add(ambientLight);
+
+        // เป้าเล็งเรืองแสงทองขยายขนาดตามตัวป้ายใบไม้
+        const fingerIndicatorGeo = new THREE.TorusGeometry(0.22, 0.045, 8, 32);
+        const fingerIndicatorMat = new THREE.MeshBasicMaterial({ color: 0xeab308, transparent: true, opacity: 0.95 });
+        const fingerIndicator = new THREE.Mesh(fingerIndicatorGeo, fingerIndicatorMat);
+        fingerIndicator.position.set(100, 100, -5);
+        scene.add(fingerIndicator);
+
+        // หน้าต่างล็อกอินแรกเข้า
+        document.getElementById('btn-submit-name').addEventListener('click', () => {
+            const inputVal = document.getElementById('player-name').value.trim();
+            if (inputVal === "") {
+                alert("❌ กรุณากรอกชื่อจริงก่อนเข้าเล่นเกมนะครับ!");
+                return;
+            }
+            pName = inputVal;
+            document.getElementById('ui-pilot-name').innerText = `👨‍✈️ ผู้เล่น: ${pName}`;
+            document.getElementById('screen-login').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                document.getElementById('screen-login').classList.add('hidden');
+                const welcomeScreen = document.getElementById('screen-welcome');
+                welcomeScreen.classList.remove('hidden');
+                setTimeout(() => { welcomeScreen.classList.add('opacity-100'); }, 50);
+            }, 500);
+        });
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            let osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            if (type === 'correct') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.15);
+            } else {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(90, audioCtx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+
+        // 🌿 วาดใบยางพาราบิ๊กไซส์พิเศษ + ขยายฟอนต์หนาใหญ่ระดับ Ultra คมชัด 🌿
+        function createLeafMesh(text, isCorrect, posX) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.save();
+            ctx.translate(256, 128);
+            ctx.beginPath();
+            ctx.moveTo(0, -100);
+            ctx.quadraticCurveTo(-210, -50, -240, 0);
+            ctx.quadraticCurveTo(-210, 50, 0, 100);
+            ctx.quadraticCurveTo(210, 50, 240, 0);
+            ctx.quadraticCurveTo(210, -50, 0, -100);
+            ctx.closePath();
+            
+            const leafColors = ['#10b981', '#22c55e', '#06b6d4', '#eab308'];
+            ctx.fillStyle = leafColors[Math.floor(Math.random() * leafColors.length)];
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 10; ctx.stroke(); // เน้นขอบสีขาวหนากราฟิก Cartoon
+
+            ctx.beginPath(); ctx.moveTo(-240, 0); ctx.lineTo(240, 0);
+            ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 4; ctx.stroke();
+            ctx.restore();
+
+            // 🛠️ ขยายข้อความภาษาไทยให้ใหญ่และอวบหนาขึ้นขีดสุดเป็น 54px อ่านง่ายชัดเจนจากระยะไกล
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 54px Mitr';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 128);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
+            
+            // 🛠️ ขยายพิกัดแผ่นใบไม้ 3D ให้ใหญ่สะใจเต็มหน้ากระดาน (กว้าง 3.2 x สูง 1.6)
+            const geom = new THREE.PlaneGeometry(3.2, 1.6);
+            const mesh = new THREE.Mesh(geom, mat);
+
+            mesh.position.set(posX, -4.8, -5);
+            mesh.rotation.z = 0; // ล็อกแนวตั้งตรง 100% อ่านง่ายทุกคำ
+            
+            return {
+                mesh: mesh,
+                isCorrect: isCorrect,
+                speed: 0.0095 + Math.random() * 0.0055 // ลอยนุ่มนวลอย่างเป็นระเบียบ (Super Slow)
+            };
+        }
+
+        // 🛠️ ระบบบังคับเสิร์ฟคละ 5 ใบสัมบูรณ์: ล็อกสัดส่วนตายตัว (ใช่ 2 คำ : ไม่ใช่ 3 คำ) ในทุก ๆ รอบ
+        function spawnLeafGroup() {
+            if (!gameActive) return;
+
+            // จัดเรียงตำแหน่งแกน X 5 ช่องอย่างเป็นระเบียบไม่ให้ใบไม้ลอยซ้อนทับกัน
+            const positionsX = [-3.2, -1.6, 0.0, 1.6, 3.2];
+            
+            // เตรียมกล่องบรรจุชุดคำสำหรับรอบนี้
+            let currentRoundWords = [];
+            
+            // 1. สุ่มดึงคำที่เป็นประโยชน์ (ใช่) มา 2 คำแบบไม่ซ้ำกัน
+            let tempKantang = [...KANTANG_WORDS];
+            for (let i = 0; i < 2; i++) {
+                let idx = Math.floor(Math.random() * tempKantang.length);
+                currentRoundWords.push({ text: tempKantang[idx], isCorrect: true });
+                tempKantang.splice(idx, 1);
+            }
+
+            // 2. สุ่มดึงคำที่ไม่เกี่ยว (ไม่ใช่) มา 3 คำแบบไม่ซ้ำกัน
+            let tempOther = [...OTHER_WORDS];
+            for (let i = 0; i < 3; i++) {
+                let idx = Math.floor(Math.random() * tempOther.length);
+                currentRoundWords.push({ text: tempOther[idx], isCorrect: false });
+                tempOther.splice(idx, 1);
+            }
+
+            // 3. สับเปลี่ยนลำดับตัวเลือก (Shuffle) เพื่อคละตรรกะใน 5 ช่องแนวราบ
+            currentRoundWords.sort(() => Math.random() - 0.5);
+
+            // 4. ประกอบสร้างใบไม้ปล่อยขึ้นสู่ชั้นบรรยากาศพร้อมกัน 5 ใบ
+            for(let i = 0; i < 5; i++) {
+                const leaf = createLeafMesh(currentRoundWords[i].text, currentRoundWords[i].isCorrect, positionsX[i]);
+                scene.add(leaf.mesh);
+                leafObjects.push(leaf);
+            }
+
+            // หน่วงเวลารอปล่อยชุด 5 ใบในลูปถัดไป (5.8 วินาที เพื่อรักษาระยะความนุ่มนวลของกระดาน)
+            setTimeout(spawnLeafGroup, 5800);
+        }
+
+        function startGame() {
+            initAudio();
+            gameScore = 0; timeLeft = 30; gameActive = true;
+            leafObjects.forEach(l => scene.remove(l.mesh));
+            leafObjects = [];
+
+            document.getElementById('ui-score').innerText = gameScore;
+            document.getElementById('ui-timer').innerText = timeLeft;
+            document.getElementById('game-hud').classList.remove('hidden');
+
+            gameTimerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('ui-timer').innerText = timeLeft;
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+
+            spawnLeafGroup(); 
+            animate();
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(gameTimerInterval);
+            document.getElementById('game-hud').classList.add('hidden');
+            
+            let rankStr = "", medalEmoji = "";
+            if (gameScore >= 140) { rankStr = "👑 ยอดผู้เชี่ยวชาญวัฒนธรรมกันตัง (ระดับยอดเยี่ยม)"; medalEmoji = "🥇"; }
+            else if (gameScore >= 70) { rankStr = "🌿 ผู้รอบรู้เรื่องราวเมืองกันตัง (ระดับดีมาก)"; medalEmoji = "🥈"; }
+            else { rankStr = "🚀 ต้องเรียนรู้เมืองกันตัง (พยายามอีกนิดนะ!)"; medalEmoji = "🥉"; }
+
+            document.getElementById('final-name').innerText = pName;
+            document.getElementById('final-score').innerText = gameScore;
+            document.getElementById('final-rank').innerText = rankStr;
+            document.getElementById('medal-emoji').innerText = medalEmoji;
+            
+            const resScreen = document.getElementById('screen-result');
+            resScreen.classList.remove('hidden');
+            setTimeout(() => { resScreen.classList.add('opacity-100'); }, 50);
+        }
+
+        function animate() {
+            if (!gameActive) return;
+            requestAnimationFrame(animate);
+
+            for (let i = leafObjects.length - 1; i >= 0; i--) {
+                const leaf = leafObjects[i];
+                leaf.mesh.position.y += leaf.speed; 
+
+                if (hasHandDetected) {
+                    let dist = fingerIndicator.position.distanceTo(leaf.mesh.position);
+                    // ขยายขอบเขตการเช็กจิ้มชนสัมผัสเพิ่มขึ้นเป็น (1.15) เพื่อรับน้ำหนักตัวใบไม้ขนาดใหญ่ยักษ์ จิ้มง่ายติดไวชัวร์
+                    if (dist < 1.15) {
+                        triggerExplosionEffect(leaf.mesh.position);
+                        if (leaf.isCorrect) { gameScore += 10; playSound('correct'); }
+                        else { gameScore -= 5; playSound('wrong'); }
+                        
+                        document.getElementById('ui-score').innerText = gameScore;
+                        scene.remove(leaf.mesh);
+                        leafObjects.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (leaf.mesh.position.y > 4.5) {
+                    scene.remove(leaf.mesh);
+                    leafObjects.splice(i, 1);
+                }
+            }
+            renderer.render(scene, camera);
+        }
+
+        function triggerExplosionEffect(pos) {
+            const pCount = 15;
+            const geom = new THREE.SphereGeometry(0.075, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+            const group = new THREE.Group();
+
+            for(let i=0; i<pCount; i++) {
+                const p = new THREE.Mesh(geom, mat);
+                group.add(p);
+                p.userData = { vx: (Math.random() - 0.5) * 0.17, vy: (Math.random() - 0.5) * 0.17 };
+            }
+            group.position.copy(pos); scene.add(group);
+
+            let ticks = 0;
+            const expInterval = setInterval(() => {
+                group.children.forEach(p => {
+                    p.position.x += p.userData.vx; p.position.y += p.userData.vy;
+                });
+                ticks++;
+                if(ticks > 15) { clearInterval(expInterval); scene.remove(group); }
+            }, 25);
+        }
+
+        function onHandResults(results) {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                hasHandDetected = true;
+                const hand = results.multiHandLandmarks[0];
+                const indexTip = hand[8]; // ดึงพิกัดนิ้วชี้จุดสัมบูรณ์
+
+                let currentHandX = -(indexTip.x - 0.5) * 8.5;
+                let currentHandY = -(indexTip.y - 0.5) * 6.0;
+                
+                fingerIndicator.position.set(currentHandX, currentHandY, -4.9);
+            } else {
+                fingerIndicator.position.set(100, 100, -5);
+                hasHandDetected = false;
+            }
+        }
+
+        const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
+        hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.55, minTrackingConfidence: 0.55 });
+        hands.onResults(onHandResults);
+
+        const videoElement = document.getElementById('webcam');
+        const cameraUtils = new Camera(videoElement, {
+            onFrame: async () => { await hands.send({ image: videoElement }); },
+            width: 640, height: 480
+        });
+        cameraUtils.start();
+
+        // ฟังก์ชันยิงพิกัดส่งข้อมูล ชื่อ และ คะแนน เข้าสู่ Google Sheets
+        document.getElementById('btn-send-data').addEventListener('click', () => {
+            const btn = document.getElementById('btn-send-data');
+            btn.innerText = "⏳ กำลังส่งข้อมูลสถิติ..."; btn.disabled = true;
+
+            fetch(GAS_WEB_APP_URL, {
+                method: "POST", mode: "no-cors", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: pName, score: gameScore, status: "เล่นเกมรู้ไหมกันตังมีดีอะไร คละ 5 ใบสัมบูรณ์" })
+            }).then(() => {
+                btn.innerText = "📤 บันทึกสถิติสำเร็จ!";
+                btn.className = "w-full bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs mb-3";
+            }).catch(() => { alert("เกิดข้อขัดข้องทางระบบ"); btn.disabled = false; });
+        });
+
+        document.getElementById('btn-play').addEventListener('click', () => {
+            document.getElementById('screen-welcome').classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => { document.getElementById('screen-welcome').classList.add('hidden'); }, 500);
+            startGame();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            document.getElementById('screen-result').classList.remove('opacity-100');
+            document.getElementById('screen-result').classList.add('hidden');
+            const sendBtn = document.getElementById('btn-send-data');
+            sendBtn.innerText = "📤 ส่งคะแนนไปที่ Google Sheets";
+            sendBtn.disabled = false;
+            sendBtn.className = "w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs mb-3 transition-all cursor-pointer";
+            startGame();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
